@@ -27,6 +27,10 @@ func Generate(cfg Config) error {
 	resValues := filepath.Join(srcMain, "res", "values")
 	gradleWrapper := filepath.Join(projectRoot, "gradle", "wrapper")
 
+	// Test directories
+	testDir := filepath.Join(appDir, "src", "test", "java", pkgToPath(cfg.PackageName))
+	androidTestDir := filepath.Join(appDir, "src", "androidTest", "java", pkgToPath(cfg.PackageName))
+
 	// Determine SDK versions
 	minSdk := cfg.MinVersion
 	if minSdk == "" {
@@ -47,8 +51,20 @@ func Generate(cfg Config) error {
 	gradle := cfg.StudioInfo.GradleVersion
 	kotlin := cfg.StudioInfo.KotlinVersion
 
+	// Resource directories
+	resDrawable := filepath.Join(srcMain, "res", "drawable")
+	resDrawableV24 := filepath.Join(srcMain, "res", "drawable-v24")
+	resMipmapAnydpi := filepath.Join(srcMain, "res", "mipmap-anydpi-v26")
+	resXml := filepath.Join(srcMain, "res", "xml")
+
+	// ui.theme directory (Compose only)
+	themeDir := filepath.Join(srcMain, "java", pkgToPath(cfg.PackageName), "ui", "theme")
+
 	// Create directories
-	dirs := []string{javaDir, resValues, gradleWrapper}
+	dirs := []string{javaDir, resValues, resDrawable, resDrawableV24, resMipmapAnydpi, resXml, gradleWrapper, testDir, androidTestDir}
+	if cfg.Framework == "compose" {
+		dirs = append(dirs, themeDir)
+	}
 	if cfg.Framework == "xml" {
 		dirs = append(dirs, filepath.Join(srcMain, "res", "layout"))
 	}
@@ -63,16 +79,41 @@ func Generate(cfg Config) error {
 		filepath.Join(projectRoot, "build.gradle.kts"):            rootBuildGradle(agp, kotlin),
 		filepath.Join(projectRoot, "settings.gradle.kts"):         settingsGradle(cfg.Name),
 		filepath.Join(projectRoot, "gradle.properties"):           gradleProperties(),
+		filepath.Join(projectRoot, ".gitignore"):                   gitignore(),
+		filepath.Join(projectRoot, "local.properties"):            localProperties(),
+		filepath.Join(projectRoot, "gradle", "libs.versions.toml"): libsVersionsToml(agp, kotlin),
 		filepath.Join(gradleWrapper, "gradle-wrapper.properties"): gradleWrapperProperties(gradle),
 		filepath.Join(srcMain, "AndroidManifest.xml"):             androidManifest(cfg.PackageName, cfg.Framework),
 		filepath.Join(resValues, "strings.xml"):                   stringsXML(cfg.Name),
 		filepath.Join(appDir, "proguard-rules.pro"):               proguardRules(),
 	}
 
+	// gradlew scripts
+	files[filepath.Join(projectRoot, "gradlew")] = gradlewScript()
+	files[filepath.Join(projectRoot, "gradlew.bat")] = gradlewBat()
+
+	// Test files
+	files[filepath.Join(testDir, cfg.Name+"Test.kt")] = unitTestFile(cfg.PackageName, cfg.Name)
+	files[filepath.Join(androidTestDir, cfg.Name+"InstrumentedTest.kt")] = instrumentedTestFile(cfg.PackageName, cfg.Name)
+
+	// Resource files (shared)
+	files[filepath.Join(resDrawable, "ic_launcher_background.xml")] = icLauncherBackground()
+	files[filepath.Join(resDrawableV24, "ic_launcher_foreground.xml")] = icLauncherForeground()
+	files[filepath.Join(resMipmapAnydpi, "ic_launcher.xml")] = icLauncherXML()
+	files[filepath.Join(resMipmapAnydpi, "ic_launcher_round.xml")] = icLauncherXML()
+	files[filepath.Join(resValues, "colors.xml")] = colorsXML()
+	files[filepath.Join(resValues, "themes.xml")] = themesXML(cfg.Name)
+	files[filepath.Join(resXml, "backup_rules.xml")] = backupRulesXML()
+	files[filepath.Join(resXml, "data_extraction_rules.xml")] = dataExtractionRulesXML()
+
 	// App build.gradle.kts
 	if cfg.Framework == "compose" {
 		files[filepath.Join(appDir, "build.gradle.kts")] = appBuildGradleCompose(cfg.PackageName, agp, kotlin, minSdk, targetSdk, compileSdk, javaVer)
 		files[filepath.Join(javaDir, "MainActivity.kt")] = mainActivityCompose(cfg.PackageName)
+		// ui.theme files
+		files[filepath.Join(themeDir, "Color.kt")] = colorKt(cfg.PackageName)
+		files[filepath.Join(themeDir, "Theme.kt")] = themeKt(cfg.PackageName, cfg.Name)
+		files[filepath.Join(themeDir, "Type.kt")] = typeKt(cfg.PackageName)
 	} else {
 		files[filepath.Join(appDir, "build.gradle.kts")] = appBuildGradleXML(cfg.PackageName, agp, kotlin, minSdk, targetSdk, compileSdk, javaVer)
 		files[filepath.Join(javaDir, "MainActivity.kt")] = mainActivityXML(cfg.PackageName)
@@ -86,9 +127,66 @@ func Generate(cfg Config) error {
 		}
 	}
 
+	// Make gradlew executable
+	os.Chmod(filepath.Join(projectRoot, "gradlew"), 0755)
+
+	// Detect sdk.dir and append to local.properties
+	sdkDir := findAndroidSDK()
+	if sdkDir != "" {
+		lp := filepath.Join(projectRoot, "local.properties")
+		content, _ := os.ReadFile(lp)
+		os.WriteFile(lp, []byte(string(content)+fmt.Sprintf("sdk.dir=%s\n", sdkDir)), 0644)
+	}
+
+	// Copy gradle-wrapper.jar from system if available
+	copyGradleWrapperJar(filepath.Join(gradleWrapper, "gradle-wrapper.jar"))
+
 	fmt.Printf("Android project created: %s\n", projectRoot)
 	fmt.Printf("  minSdk: %s, targetSdk: %s, Java: %s\n", minSdk, targetSdk, javaVer)
 	fmt.Printf("  AGP: %s, Gradle: %s, Kotlin: %s\n", agp, gradle, kotlin)
 	fmt.Printf("  Framework: %s\n", cfg.Framework)
 	return nil
+}
+
+func findAndroidSDK() string {
+	// Check ANDROID_HOME / ANDROID_SDK_ROOT
+	for _, env := range []string{"ANDROID_HOME", "ANDROID_SDK_ROOT"} {
+		if v := os.Getenv(env); v != "" {
+			return v
+		}
+	}
+	// Default macOS location
+	home, _ := os.UserHomeDir()
+	defaultPath := filepath.Join(home, "Library", "Android", "sdk")
+	if _, err := os.Stat(defaultPath); err == nil {
+		return defaultPath
+	}
+	return ""
+}
+
+func copyGradleWrapperJar(dest string) {
+	home, _ := os.UserHomeDir()
+	var found string
+
+	// Search entire .gradle directory for gradle-wrapper.jar
+	gradleDir := filepath.Join(home, ".gradle")
+	filepath.Walk(gradleDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if found == "" && info.Name() == "gradle-wrapper.jar" && !info.IsDir() {
+			found = path
+		}
+		return nil
+	})
+
+	if found != "" {
+		data, err := os.ReadFile(found)
+		if err == nil {
+			os.WriteFile(dest, data, 0644)
+			fmt.Printf("  gradle-wrapper.jar copied from cache\n")
+			return
+		}
+	}
+	fmt.Printf("  [warn] gradle-wrapper.jar not found — first Gradle sync will be slow\n")
 }

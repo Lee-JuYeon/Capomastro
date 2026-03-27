@@ -24,9 +24,9 @@ var studioVersionMap = map[string]struct {
 	gradle  string
 	kotlin  string
 }{
-	"2024.3": {name: "Meerkat", agp: "8.9.0", gradle: "8.11.1", kotlin: "2.1.0"},
-	"2024.2": {name: "Ladybug", agp: "8.8.0", gradle: "8.10.2", kotlin: "2.0.21"},
-	"2024.1": {name: "Koala", agp: "8.5.0", gradle: "8.7", kotlin: "2.0.0"},
+	"2024.3": {name: "Meerkat", agp: "8.10.1", gradle: "8.11.1", kotlin: "2.0.21"},
+	"2024.2": {name: "Ladybug", agp: "8.8.2", gradle: "8.10.2", kotlin: "2.0.21"},
+	"2024.1": {name: "Koala", agp: "8.5.2", gradle: "8.7", kotlin: "2.0.0"},
 	"2023.3": {name: "Jellyfish", agp: "8.4.0", gradle: "8.6", kotlin: "1.9.23"},
 	"2023.2": {name: "Iguana", agp: "8.3.0", gradle: "8.4", kotlin: "1.9.22"},
 	"2023.1": {name: "Hedgehog", agp: "8.2.0", gradle: "8.2", kotlin: "1.9.20"},
@@ -54,12 +54,25 @@ func DetectAndroidStudio() (*AndroidStudioInfo, error) {
 	raw := strings.TrimSpace(string(data))
 	versionCode := strings.TrimPrefix(raw, "AI-")
 
-	// Extract year.major (e.g. "2022.1" from "2022.1.1.21")
+	// build.txt format: "AI-243.26053.27.2432.13536105"
+	// 243 → 20(24).(3) → 2024.3
+	// Or older format: "AI-2022.1.1.21" → 2022.1
 	parts := strings.Split(versionCode, ".")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("unexpected Android Studio version format: %s", raw)
 	}
-	key := parts[0] + "." + parts[1]
+
+	key := ""
+	if len(parts[0]) == 3 {
+		// New format: 243 → 2024.3, 232 → 2023.2, 211 → 2021.1
+		code := parts[0]
+		year := "20" + code[:2]
+		major := string(code[2])
+		key = year + "." + major
+	} else {
+		// Old format: 2022.1.1.21 → 2022.1
+		key = parts[0] + "." + parts[1]
+	}
 
 	info := &AndroidStudioInfo{
 		VersionCode: versionCode,
