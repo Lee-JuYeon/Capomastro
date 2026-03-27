@@ -1,0 +1,81 @@
+package ios
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/cavss/ProjectBuilder/internal/detector"
+)
+
+type Config struct {
+	Name       string
+	BundleID   string
+	OutputDir  string
+	Platform   string // "ios" or "macos"
+	Framework  string // "swiftui" or "uikit"
+	MinVersion string
+	XcodeInfo  *detector.XcodeInfo
+}
+
+func Generate(cfg Config) error {
+	projectRoot := filepath.Join(cfg.OutputDir, cfg.Name)
+	xcodeproj := filepath.Join(projectRoot, cfg.Name+".xcodeproj")
+	sourcesDir := filepath.Join(projectRoot, cfg.Name)
+	assetsDir := filepath.Join(sourcesDir, "Assets.xcassets")
+	appIconDir := filepath.Join(assetsDir, "AppIcon.appiconset")
+	accentDir := filepath.Join(assetsDir, "AccentColor.colorset")
+
+	// Create directories
+	dirs := []string{xcodeproj, sourcesDir, appIconDir, accentDir}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", d, err)
+		}
+	}
+
+	// Generate project.pbxproj
+	pbxproj := generatePbxproj(cfg)
+	if err := os.WriteFile(filepath.Join(xcodeproj, "project.pbxproj"), []byte(pbxproj), 0644); err != nil {
+		return fmt.Errorf("failed to write project.pbxproj: %w", err)
+	}
+
+	// Generate source files
+	if cfg.Framework == "swiftui" {
+		files := map[string]string{
+			cfg.Name + "App.swift": swiftuiAppFile(cfg.Name),
+			"ContentView.swift":    swiftuiContentView(),
+		}
+		for name, content := range files {
+			if err := os.WriteFile(filepath.Join(sourcesDir, name), []byte(content), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", name, err)
+			}
+		}
+	} else {
+		files := map[string]string{
+			"AppDelegate.swift":    uikitAppDelegate(),
+			"SceneDelegate.swift":  uikitSceneDelegate(),
+			"ViewController.swift": uikitViewController(),
+		}
+		for name, content := range files {
+			if err := os.WriteFile(filepath.Join(sourcesDir, name), []byte(content), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", name, err)
+			}
+		}
+	}
+
+	// Generate asset catalogs
+	if err := os.WriteFile(filepath.Join(assetsDir, "Contents.json"), []byte(assetContentsJSON()), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(appIconDir, "Contents.json"), []byte(appIconContentsJSON()), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(accentDir, "Contents.json"), []byte(accentColorContentsJSON()), 0644); err != nil {
+		return err
+	}
+
+	fmt.Printf("iOS project created: %s\n", projectRoot)
+	fmt.Printf("Open with: open %s\n", filepath.Join(xcodeproj, ".."))
+	return nil
+}
