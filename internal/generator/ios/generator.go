@@ -15,6 +15,7 @@ type Config struct {
 	Platform   string // "ios" or "macos"
 	Framework  string // "swiftui" or "uikit"
 	MinVersion string
+	CoreData   bool
 	XcodeInfo  *detector.XcodeInfo
 }
 
@@ -26,8 +27,11 @@ func Generate(cfg Config) error {
 	appIconDir := filepath.Join(assetsDir, "AppIcon.appiconset")
 	accentDir := filepath.Join(assetsDir, "AccentColor.colorset")
 
+	testsDir := filepath.Join(projectRoot, cfg.Name+"Tests")
+	uiTestsDir := filepath.Join(projectRoot, cfg.Name+"UITests")
+
 	// Create directories
-	dirs := []string{xcodeproj, sourcesDir, appIconDir, accentDir}
+	dirs := []string{xcodeproj, sourcesDir, appIconDir, accentDir, testsDir, uiTestsDir}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", d, err)
@@ -73,6 +77,28 @@ func Generate(cfg Config) error {
 	}
 	if err := os.WriteFile(filepath.Join(accentDir, "Contents.json"), []byte(accentColorContentsJSON()), 0644); err != nil {
 		return err
+	}
+
+	// Generate test files
+	if err := os.WriteFile(filepath.Join(testsDir, cfg.Name+"Tests.swift"), []byte(unitTestFile(cfg.Name)), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(uiTestsDir, cfg.Name+"UITests.swift"), []byte(uiTestFile(cfg.Name)), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(uiTestsDir, cfg.Name+"UITestsLaunchTests.swift"), []byte(uiTestLaunchFile(cfg.Name)), 0644); err != nil {
+		return err
+	}
+
+	// Generate CoreData model (optional)
+	if cfg.CoreData {
+		modelDir := filepath.Join(sourcesDir, cfg.Name+".xcdatamodeld", cfg.Name+".xcdatamodel")
+		if err := os.MkdirAll(modelDir, 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(modelDir, "contents"), []byte(coreDataContents()), 0644); err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("iOS project created: %s\n", projectRoot)

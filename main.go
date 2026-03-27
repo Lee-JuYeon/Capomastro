@@ -19,6 +19,14 @@ var (
 	out        string
 	framework  string
 	minVersion string
+	coreData   bool
+
+	// Android-specific overrides
+	targetSdk     string
+	javaVersion   string
+	agpVersion    string
+	gradleVersion string
+	kotlinVersion string
 )
 
 func main() {
@@ -29,12 +37,23 @@ func main() {
 		RunE:  run,
 	}
 
+	// Common
 	root.Flags().StringVar(&platform, "platform", "", "Target platform: ios, macos, android, flutter (required)")
 	root.Flags().StringVar(&pkg, "pkg", "", "Package/bundle identifier (e.g. com.example.app) (required)")
 	root.Flags().StringVar(&name, "name", "", "Project name (required)")
 	root.Flags().StringVar(&out, "out", ".", "Output directory")
 	root.Flags().StringVar(&framework, "framework", "", "UI framework: swiftui, uikit (iOS/macOS), compose, xml (Android)")
 	root.Flags().StringVar(&minVersion, "min-version", "", "Minimum deployment version override")
+
+	// iOS/macOS
+	root.Flags().BoolVar(&coreData, "coredata", false, "Include Core Data model (iOS/macOS only)")
+
+	// Android
+	root.Flags().StringVar(&targetSdk, "target-sdk", "", "Android targetSdk/compileSdk (default: 35)")
+	root.Flags().StringVar(&javaVersion, "java-version", "", "Java compatibility version: 11, 17, 21 (default: 17)")
+	root.Flags().StringVar(&agpVersion, "agp-version", "", "Android Gradle Plugin version override")
+	root.Flags().StringVar(&gradleVersion, "gradle-version", "", "Gradle version override")
+	root.Flags().StringVar(&kotlinVersion, "kotlin-version", "", "Kotlin version override")
 
 	root.MarkFlagRequired("platform")
 	root.MarkFlagRequired("pkg")
@@ -74,6 +93,7 @@ func run(cmd *cobra.Command, args []string) error {
 			Platform:   platform,
 			Framework:  fw,
 			MinVersion: minVer,
+			CoreData:   coreData,
 			XcodeInfo:  info,
 		})
 
@@ -82,7 +102,20 @@ func run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("Android Studio detection failed: %w", err)
 		}
-		fmt.Printf("Detected Android Studio %s (AGP %s, Gradle %s)\n", info.VersionName, info.AGPVersion, info.GradleVersion)
+
+		// Apply user overrides
+		if agpVersion != "" {
+			info.AGPVersion = agpVersion
+		}
+		if gradleVersion != "" {
+			info.GradleVersion = gradleVersion
+		}
+		if kotlinVersion != "" {
+			info.KotlinVersion = kotlinVersion
+		}
+
+		fmt.Printf("Detected Android Studio %s (AGP %s, Gradle %s, Kotlin %s)\n",
+			info.VersionName, info.AGPVersion, info.GradleVersion, info.KotlinVersion)
 
 		fw := framework
 		if fw == "" {
@@ -95,6 +128,8 @@ func run(cmd *cobra.Command, args []string) error {
 			OutputDir:   out,
 			Framework:   fw,
 			MinVersion:  minVersion,
+			TargetSdk:   targetSdk,
+			JavaVersion: javaVersion,
 			StudioInfo:  info,
 		})
 

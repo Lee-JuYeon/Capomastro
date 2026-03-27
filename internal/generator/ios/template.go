@@ -132,3 +132,84 @@ func accentColorContentsJSON() string {
 }
 `
 }
+
+func unitTestFile(name string) string {
+	return fmt.Sprintf(`import XCTest
+@testable import %s
+
+final class %sTests: XCTestCase {
+    override func setUpWithError() throws {
+    }
+
+    override func tearDownWithError() throws {
+    }
+
+    func testExample() throws {
+        XCTAssertTrue(true)
+    }
+
+    func testPerformanceExample() throws {
+        self.measure {
+        }
+    }
+}
+`, name, name)
+}
+
+func uiTestFile(name string) string {
+	return fmt.Sprintf(`import XCTest
+
+final class %sUITests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+    }
+
+    func testExample() throws {
+        let app = XCUIApplication()
+        app.launch()
+    }
+
+    func testLaunchPerformance() throws {
+        if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 7.0, *) {
+            measure(metrics: [XCTApplicationLaunchMetric()]) {
+                XCUIApplication().launch()
+            }
+        }
+    }
+}
+`, name)
+}
+
+func uiTestLaunchFile(name string) string {
+	return fmt.Sprintf(`import XCTest
+
+final class %sUITestsLaunchTests: XCTestCase {
+    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+        true
+    }
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    func testLaunch() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Launch Screen"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+`, name)
+}
+
+func coreDataContents() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22758" systemVersion="23F79" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+</model>
+`
+}

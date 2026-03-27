@@ -35,7 +35,18 @@ include(":app")
 `, name)
 }
 
-func appBuildGradleCompose(pkg, agpVersion, kotlinVersion, minSdk, targetSdk, compileSdk string) string {
+func javaVersionConst(ver string) string {
+	switch ver {
+	case "11":
+		return "VERSION_11"
+	case "21":
+		return "VERSION_21"
+	default:
+		return "VERSION_17"
+	}
+}
+
+func appBuildGradleCompose(pkg, agpVersion, kotlinVersion, minSdk, targetSdk, compileSdk, javaVer string) string {
 	return fmt.Sprintf(`plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -61,12 +72,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.%s
+        targetCompatibility = JavaVersion.%s
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "%s"
     }
 
     buildFeatures {
@@ -88,10 +99,10 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
-`, pkg, compileSdk, pkg, minSdk, targetSdk)
+`, pkg, compileSdk, pkg, minSdk, targetSdk, javaVersionConst(javaVer), javaVersionConst(javaVer), javaVer)
 }
 
-func appBuildGradleXML(pkg, agpVersion, kotlinVersion, minSdk, targetSdk, compileSdk string) string {
+func appBuildGradleXML(pkg, agpVersion, kotlinVersion, minSdk, targetSdk, compileSdk, javaVer string) string {
 	return fmt.Sprintf(`plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -117,12 +128,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.%s
+        targetCompatibility = JavaVersion.%s
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "%s"
     }
 
     buildFeatures {
@@ -136,7 +147,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 }
-`, pkg, compileSdk, pkg, minSdk, targetSdk)
+`, pkg, compileSdk, pkg, minSdk, targetSdk, javaVersionConst(javaVer), javaVersionConst(javaVer), javaVer)
 }
 
 func gradleProperties() string {
