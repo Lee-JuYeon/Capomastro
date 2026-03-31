@@ -162,12 +162,101 @@ type fileEntry struct {
 	refID, buildID, name, path string
 }
 
+// dirGroup — PBXGroup으로 등록할 디렉토리
+type dirGroup struct {
+	groupID  string
+	name     string
+	path     string
+	children []string // 하위 그룹 ID 또는 파일 refID (주석 포함)
+	files    []fileEntry
+	subdirs  []*dirGroup
+}
+
+// scanDirTree — 디렉토리 트리를 스캔하여 dirGroup 트리 생성
+func (b *pbxBuilder) scanDirTree(baseDir string) *dirGroup {
+	root := &dirGroup{
+		groupID: b.sourcesGroupID,
+		name:    b.name,
+		path:    b.name,
+	}
+	b.buildDirGroup(root, baseDir)
+	return root
+}
+
+func (b *pbxBuilder) buildDirGroup(g *dirGroup, dir string) {
+	items, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, item := range items {
+		name := item.Name()
+		if item.IsDir() {
+			if name == "build" || name == ".build" || strings.HasSuffix(name, ".xcassets") || strings.HasSuffix(name, ".xcdatamodeld") {
+				continue
+			}
+			sub := &dirGroup{
+				groupID: genUUID(b.name + ".group." + g.path + "/" + name),
+				name:    name,
+				path:    name,
+			}
+			b.buildDirGroup(sub, filepath.Join(dir, name))
+			if len(sub.files) > 0 || len(sub.subdirs) > 0 {
+				g.subdirs = append(g.subdirs, sub)
+			}
+		} else if strings.HasSuffix(name, ".swift") {
+			quotedPath := name
+			if strings.ContainsAny(name, "+ ") {
+				quotedPath = "\"" + name + "\""
+			}
+			// 전체 상대 경로 (빌드용)
+			fullRel := name
+			if g.path != b.name {
+				fullRel = g.path + "/" + name
+			}
+			f := fileEntry{
+				refID:   genUUID(b.name + ".ref." + g.path + "/" + name),
+				buildID: genUUID(b.name + ".build." + g.path + "/" + name),
+				name:    name,
+				path:    quotedPath,
+			}
+			_ = fullRel
+			g.files = append(g.files, f)
+		}
+	}
+}
+
+// allFiles — 트리에서 모든 파일을 flat으로 수집 (빌드/파일참조용)
+func (g *dirGroup) allFiles() []fileEntry {
+	var all []fileEntry
+	all = append(all, g.files...)
+	for _, sub := range g.subdirs {
+		all = append(all, sub.allFiles()...)
+	}
+	return all
+}
+
+// writeGroupTree — PBXGroup 섹션에 트리 구조 출력
+func writeGroupTree(s *strings.Builder, g *dirGroup) {
+	s.WriteString(fmt.Sprintf("\t\t%s /* %s */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n", g.groupID, g.name))
+	for _, sub := range g.subdirs {
+		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", sub.groupID, sub.name))
+	}
+	for _, f := range g.files {
+		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", f.refID, f.name))
+	}
+	s.WriteString(fmt.Sprintf("\t\t\t);\n\t\t\tpath = %s;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n", g.path))
+	for _, sub := range g.subdirs {
+		writeGroupTree(s, sub)
+	}
+}
+
 func (b *pbxBuilder) appSourceFiles() []fileEntry {
 	n := b.name
-	// 소스 디렉토리가 존재하면 실제 .swift 파일을 스캔
+	// 소스 디렉토리가 존재하면 트리에서 전체 파일 수집
 	sourcesDir := filepath.Join(b.cfg.OutputDir, n, n)
 	if info, err := os.Stat(sourcesDir); err == nil && info.IsDir() {
-		return b.scanSwiftFiles(sourcesDir, "")
+		tree := b.scanDirTree(sourcesDir)
+		return tree.allFiles()
 	}
 	// 디렉토리가 없으면 (신규 생성) 기본 파일만
 	if b.cfg.Framework == "swiftui" {
@@ -359,16 +448,40 @@ func (b *pbxBuilder) writeGroups(s *strings.Builder) {
 		};
 `, b.mainGroupID, b.sourcesGroupID, b.name, b.testsGroupID, b.name, b.uiTestsGroupID, b.name, b.productsGroupID))
 
-	// App sources group
-	s.WriteString(fmt.Sprintf("\t\t%s /* %s */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n", b.sourcesGroupID, b.name))
-	for _, f := range b.appSourceFiles() {
-		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", f.refID, f.name))
+	// App sources group — 디렉토리 트리 구조
+	sourcesDir := filepath.Join(b.cfg.OutputDir, b.name, b.name)
+	if info, err := os.Stat(sourcesDir); err == nil && info.IsDir() {
+		// 기존 프로젝트: 트리 스캔
+		tree := b.scanDirTree(sourcesDir)
+		// Assets + CoreData를 루트 그룹에 추가
+		s.WriteString(fmt.Sprintf("\t\t%s /* %s */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n", tree.groupID, tree.name))
+		for _, sub := range tree.subdirs {
+			s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", sub.groupID, sub.name))
+		}
+		for _, f := range tree.files {
+			s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", f.refID, f.name))
+		}
+		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* Assets.xcassets */,\n", b.assetsRefID))
+		if b.cfg.CoreData {
+			s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s.xcdatamodeld */,\n", b.coreDataRefID, b.name))
+		}
+		s.WriteString(fmt.Sprintf("\t\t\t);\n\t\t\tpath = %s;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n", b.name))
+		// 하위 그룹들 출력
+		for _, sub := range tree.subdirs {
+			writeGroupTree(s, sub)
+		}
+	} else {
+		// 신규 프로젝트: flat
+		s.WriteString(fmt.Sprintf("\t\t%s /* %s */ = {\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n", b.sourcesGroupID, b.name))
+		for _, f := range b.appSourceFiles() {
+			s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s */,\n", f.refID, f.name))
+		}
+		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* Assets.xcassets */,\n", b.assetsRefID))
+		if b.cfg.CoreData {
+			s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s.xcdatamodeld */,\n", b.coreDataRefID, b.name))
+		}
+		s.WriteString(fmt.Sprintf("\t\t\t);\n\t\t\tpath = %s;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n", b.name))
 	}
-	s.WriteString(fmt.Sprintf("\t\t\t\t%s /* Assets.xcassets */,\n", b.assetsRefID))
-	if b.cfg.CoreData {
-		s.WriteString(fmt.Sprintf("\t\t\t\t%s /* %s.xcdatamodeld */,\n", b.coreDataRefID, b.name))
-	}
-	s.WriteString(fmt.Sprintf("\t\t\t);\n\t\t\tpath = %s;\n\t\t\tsourceTree = \"<group>\";\n\t\t};\n", b.name))
 
 	// Products group
 	s.WriteString(fmt.Sprintf(`		%s /* Products */ = {
