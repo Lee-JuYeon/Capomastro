@@ -211,12 +211,17 @@ func (b *pbxBuilder) scanSwiftFiles(baseDir string, relDir string) []fileEntry {
 			if relDir != "" {
 				relPath = relDir + "/" + item.Name()
 			}
+			// pbxproj에서 특수문자(+, 공백 등) 포함 경로는 따옴표 필요
+			quotedPath := relPath
+			if strings.ContainsAny(relPath, "+ ") {
+				quotedPath = "\"" + relPath + "\""
+			}
 			seed := b.name + ".ref." + relPath
 			entries = append(entries, fileEntry{
 				refID:   genUUID(seed),
 				buildID: genUUID(b.name + ".build." + relPath),
-				name:    item.Name(),
-				path:    relPath,
+				name:    item.Name(),  // 주석용 — 따옴표 없이
+				path:    quotedPath,   // pbxproj path — 특수문자 시 따옴표
 			})
 		}
 	}
