@@ -45,13 +45,33 @@ func Generate(cfg Config) error {
 	}
 
 	// Generate source files
+	// 소스 파일은 하위 디렉토리에 같은 이름이 있으면 생성하지 않음 (에이전트 코드 보존)
+	writeIfNotExists := func(path string, content string) error {
+		if _, err := os.Stat(path); err == nil {
+			return nil // 루트에 이미 존재 → 스킵
+		}
+		// 하위 디렉토리에 같은 이름 파일이 있는지 확인
+		base := filepath.Base(path)
+		dir := filepath.Dir(path)
+		found := false
+		filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() { return nil }
+			if filepath.Base(p) == base && p != path { found = true }
+			return nil
+		})
+		if found {
+			return nil // 하위에 동명 파일 존재 → 스킵
+		}
+		return os.WriteFile(path, []byte(content), 0644)
+	}
+
 	if cfg.Framework == "swiftui" {
 		files := map[string]string{
 			cfg.Name + "App.swift": swiftuiAppFile(cfg.Name),
 			"ContentView.swift":    swiftuiContentView(),
 		}
 		for name, content := range files {
-			if err := os.WriteFile(filepath.Join(sourcesDir, name), []byte(content), 0644); err != nil {
+			if err := writeIfNotExists(filepath.Join(sourcesDir, name), content); err != nil {
 				return fmt.Errorf("failed to write %s: %w", name, err)
 			}
 		}
@@ -62,7 +82,7 @@ func Generate(cfg Config) error {
 			"ViewController.swift": uikitViewController(),
 		}
 		for name, content := range files {
-			if err := os.WriteFile(filepath.Join(sourcesDir, name), []byte(content), 0644); err != nil {
+			if err := writeIfNotExists(filepath.Join(sourcesDir, name), content); err != nil {
 				return fmt.Errorf("failed to write %s: %w", name, err)
 			}
 		}
