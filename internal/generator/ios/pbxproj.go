@@ -3,6 +3,8 @@ package ios
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -162,6 +164,12 @@ type fileEntry struct {
 
 func (b *pbxBuilder) appSourceFiles() []fileEntry {
 	n := b.name
+	// 소스 디렉토리가 존재하면 실제 .swift 파일을 스캔
+	sourcesDir := filepath.Join(b.cfg.OutputDir, n, n)
+	if info, err := os.Stat(sourcesDir); err == nil && info.IsDir() {
+		return b.scanSwiftFiles(sourcesDir, "")
+	}
+	// 디렉토리가 없으면 (신규 생성) 기본 파일만
 	if b.cfg.Framework == "swiftui" {
 		return []fileEntry{
 			{genUUID(n + ".ref.app"), genUUID(n + ".build.app"), n + "App.swift", n + "App.swift"},
@@ -173,6 +181,46 @@ func (b *pbxBuilder) appSourceFiles() []fileEntry {
 		{genUUID(n + ".ref.scenedelegate"), genUUID(n + ".build.scenedelegate"), "SceneDelegate.swift", "SceneDelegate.swift"},
 		{genUUID(n + ".ref.viewcontroller"), genUUID(n + ".build.viewcontroller"), "ViewController.swift", "ViewController.swift"},
 	}
+}
+
+// scanSwiftFiles — 디렉토리 재귀 스캔하여 모든 .swift 파일을 fileEntry로 반환
+func (b *pbxBuilder) scanSwiftFiles(baseDir string, relDir string) []fileEntry {
+	var entries []fileEntry
+	dir := baseDir
+	if relDir != "" {
+		dir = filepath.Join(baseDir, relDir)
+	}
+	items, err := os.ReadDir(dir)
+	if err != nil {
+		return entries
+	}
+	for _, item := range items {
+		if item.IsDir() {
+			// 하위 디렉토리 재귀 (build, .build, xcassets, xcdatamodeld 제외)
+			name := item.Name()
+			if name == "build" || name == ".build" || strings.HasSuffix(name, ".xcassets") || strings.HasSuffix(name, ".xcdatamodeld") {
+				continue
+			}
+			sub := name
+			if relDir != "" {
+				sub = relDir + "/" + name
+			}
+			entries = append(entries, b.scanSwiftFiles(baseDir, sub)...)
+		} else if strings.HasSuffix(item.Name(), ".swift") {
+			relPath := item.Name()
+			if relDir != "" {
+				relPath = relDir + "/" + item.Name()
+			}
+			seed := b.name + ".ref." + relPath
+			entries = append(entries, fileEntry{
+				refID:   genUUID(seed),
+				buildID: genUUID(b.name + ".build." + relPath),
+				name:    item.Name(),
+				path:    relPath,
+			})
+		}
+	}
+	return entries
 }
 
 func (b *pbxBuilder) testsFile() fileEntry {
