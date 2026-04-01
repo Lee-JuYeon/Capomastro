@@ -204,14 +204,10 @@ func (b *pbxBuilder) buildDirGroup(g *dirGroup, dir string) {
 				g.subdirs = append(g.subdirs, sub)
 			}
 		} else if strings.HasSuffix(name, ".swift") {
-			// 전체 상대 경로 (pbxproj path용)
-			fullRel := name
-			if g.path != b.name {
-				fullRel = g.path + "/" + name
-			}
-			quotedPath := fullRel
-			if strings.ContainsAny(fullRel, "+ ") {
-				quotedPath = "\"" + fullRel + "\""
+			// PBXGroup 구조: 각 그룹의 path가 디렉토리를 가리키므로, 파일은 파일명만
+			quotedPath := name
+			if strings.ContainsAny(name, "+ ") {
+				quotedPath = "\"" + name + "\""
 			}
 			f := fileEntry{
 				refID:   genUUID(b.name + ".ref." + g.path + "/" + name),
