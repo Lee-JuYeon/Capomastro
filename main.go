@@ -21,6 +21,9 @@ var (
 	minVersion string
 	coreData   bool
 
+	// iOS/macOS signing
+	team string
+
 	// Android-specific overrides
 	targetSdk     string
 	javaVersion   string
@@ -46,6 +49,7 @@ func main() {
 	root.Flags().StringVar(&minVersion, "min-version", "", "Minimum deployment version override")
 
 	// iOS/macOS
+	root.Flags().StringVar(&team, "team", "", "Apple Development Team ID (e.g. TW562XCG9S)")
 	root.Flags().BoolVar(&coreData, "coredata", false, "Include Core Data model (iOS/macOS only)")
 
 	// Android
@@ -94,6 +98,7 @@ func run(cmd *cobra.Command, args []string) error {
 			Framework:  fw,
 			MinVersion: minVer,
 			CoreData:   coreData,
+			Team:       team,
 			XcodeInfo:  info,
 		})
 

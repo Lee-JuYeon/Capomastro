@@ -204,14 +204,14 @@ func (b *pbxBuilder) buildDirGroup(g *dirGroup, dir string) {
 				g.subdirs = append(g.subdirs, sub)
 			}
 		} else if strings.HasSuffix(name, ".swift") {
-			quotedPath := name
-			if strings.ContainsAny(name, "+ ") {
-				quotedPath = "\"" + name + "\""
-			}
-			// 전체 상대 경로 (빌드용)
+			// 전체 상대 경로 (pbxproj path용)
 			fullRel := name
 			if g.path != b.name {
 				fullRel = g.path + "/" + name
+			}
+			quotedPath := fullRel
+			if strings.ContainsAny(fullRel, "+ ") {
+				quotedPath = "\"" + fullRel + "\""
 			}
 			f := fileEntry{
 				refID:   genUUID(b.name + ".ref." + g.path + "/" + name),
@@ -219,7 +219,6 @@ func (b *pbxBuilder) buildDirGroup(g *dirGroup, dir string) {
 				name:    name,
 				path:    quotedPath,
 			}
-			_ = fullRel
 			g.files = append(g.files, f)
 		}
 	}
@@ -705,6 +704,10 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 	if b.deviceFamily != "" {
 		deviceFamilySetting = fmt.Sprintf("\n\t\t\t\tTARGETED_DEVICE_FAMILY = %s;", b.deviceFamily)
 	}
+	teamSetting := ""
+	if b.cfg.Team != "" {
+		teamSetting = fmt.Sprintf("\n\t\t\t\tDEVELOPMENT_TEAM = %s;", b.cfg.Team)
+	}
 
 	s.WriteString("/* Begin XCBuildConfiguration section */\n")
 
@@ -765,7 +768,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Automatic;%s
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -779,7 +782,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 			};
 			name = %s;
 		};
-`, pair.id, pair.mode, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.deploymentSetting, pair.mode))
+`, pair.id, pair.mode, teamSetting, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.deploymentSetting, pair.mode))
 	}
 
 	// Tests target Debug/Release
@@ -788,7 +791,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Automatic;%s
 				GENERATE_INFOPLIST_FILE = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = %s.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -799,7 +802,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 			};
 			name = %s;
 		};
-`, pair.id, pair.mode, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.name, b.name, b.deploymentSetting, pair.mode))
+`, pair.id, pair.mode, teamSetting, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.name, b.name, b.deploymentSetting, pair.mode))
 	}
 
 	// UITests target Debug/Release
@@ -807,7 +810,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 		s.WriteString(fmt.Sprintf(`		%s /* %s */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Automatic;%s
 				GENERATE_INFOPLIST_FILE = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = %s.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -818,7 +821,7 @@ func (b *pbxBuilder) writeBuildConfigurations(s *strings.Builder) {
 			};
 			name = %s;
 		};
-`, pair.id, pair.mode, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.name, b.deploymentSetting, pair.mode))
+`, pair.id, pair.mode, teamSetting, b.cfg.BundleID, b.swiftVersion, deviceFamilySetting, b.name, b.deploymentSetting, pair.mode))
 	}
 
 	s.WriteString("/* End XCBuildConfiguration section */\n\n")

@@ -16,6 +16,7 @@ type Config struct {
 	Framework  string // "swiftui" or "uikit"
 	MinVersion string
 	CoreData   bool
+	Team       string // Apple Development Team ID
 	XcodeInfo  *detector.XcodeInfo
 }
 
@@ -110,14 +111,26 @@ func Generate(cfg Config) error {
 		return err
 	}
 
-	// Generate CoreData model (optional)
+	// Generate CoreData model (optional) — skip if xcdatamodeld already exists in any subdirectory
 	if cfg.CoreData {
 		modelDir := filepath.Join(sourcesDir, cfg.Name+".xcdatamodeld", cfg.Name+".xcdatamodel")
-		if err := os.MkdirAll(modelDir, 0755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(modelDir, "contents"), []byte(coreDataContents()), 0644); err != nil {
-			return err
+		existing := false
+		filepath.Walk(sourcesDir, func(p string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() && filepath.Ext(p) == ".xcdatamodeld" {
+				existing = true
+			}
+			return nil
+		})
+		if !existing {
+			if err := os.MkdirAll(modelDir, 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(modelDir, "contents"), []byte(coreDataContents()), 0644); err != nil {
+				return err
+			}
 		}
 	}
 
