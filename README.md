@@ -6,6 +6,17 @@
 
 CLI tool that generates buildable Xcode/Android Studio projects. Detects your IDE version and creates compatible projects with zero external dependencies.
 
+### CLI Aliases
+
+```
+capomastro <command>        # 정식 명칭
+--enzo                      # 별칭
+--capo                      # 별칭
+--capomastro                # 별칭
+```
+
+> *Part of the [CLI Company](https://github.com/users/Lee-JuYeon/projects/21) ecosystem*
+
 ## Install
 
 ```bash
