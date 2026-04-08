@@ -1,19 +1,23 @@
-# ProjectBuilder
+<p align="center">
+  <img src="banner.png" alt="Capomastro" width="100%">
+</p>
+
+# Capomastro
 
 CLI tool that generates buildable Xcode/Android Studio projects. Detects your IDE version and creates compatible projects with zero external dependencies.
 
 ## Install
 
 ```bash
-go install github.com/cavss/ProjectBuilder@latest
+go install github.com/cavss/Capomastro@latest
 ```
 
-Or download the binary from [Releases](https://github.com/Lee-JuYeon/ProjectBuilder/releases).
+Or download the binary from [Releases](https://github.com/Lee-JuYeon/Capomastro/releases).
 
 ## Usage
 
 ```bash
-ProjectBuilder --platform <PLATFORM> --pkg <PACKAGE> --name <NAME> [options]
+Capomastro --platform <PLATFORM> --pkg <PACKAGE> --name <NAME> [options]
 ```
 
 ### Required flags
@@ -38,43 +42,43 @@ ProjectBuilder --platform <PLATFORM> --pkg <PACKAGE> --name <NAME> [options]
 ### iOS (SwiftUI)
 
 ```bash
-ProjectBuilder --platform ios --pkg com.example.myapp --name MyApp
+Capomastro --platform ios --pkg com.example.myapp --name MyApp
 ```
 
 ### iOS (UIKit + CoreData)
 
 ```bash
-ProjectBuilder --platform ios --pkg com.example.myapp --name MyApp --framework uikit --coredata
+Capomastro --platform ios --pkg com.example.myapp --name MyApp --framework uikit --coredata
 ```
 
 ### iOS (minimum version override)
 
 ```bash
-ProjectBuilder --platform ios --pkg com.example.myapp --name MyApp --min-version 15.0
+Capomastro --platform ios --pkg com.example.myapp --name MyApp --min-version 15.0
 ```
 
 ### macOS
 
 ```bash
-ProjectBuilder --platform macos --pkg com.example.myapp --name MyApp
+Capomastro --platform macos --pkg com.example.myapp --name MyApp
 ```
 
 ### Android (Jetpack Compose)
 
 ```bash
-ProjectBuilder --platform android --pkg com.example.myapp --name MyApp
+Capomastro --platform android --pkg com.example.myapp --name MyApp
 ```
 
 ### Android (XML layout)
 
 ```bash
-ProjectBuilder --platform android --pkg com.example.myapp --name MyApp --framework xml
+Capomastro --platform android --pkg com.example.myapp --name MyApp --framework xml
 ```
 
 ### Flutter
 
 ```bash
-ProjectBuilder --platform flutter --pkg com.example --name MyApp
+Capomastro --platform flutter --pkg com.example --name MyApp
 ```
 
 ## How it works
