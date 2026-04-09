@@ -6,10 +6,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cavss/ProjectBuilder/internal/detector"
-	"github.com/cavss/ProjectBuilder/internal/generator/android"
-	"github.com/cavss/ProjectBuilder/internal/generator/flutter"
-	"github.com/cavss/ProjectBuilder/internal/generator/ios"
+	"github.com/cavss/Capomastro/internal/detector"
+	"github.com/cavss/Capomastro/internal/generator/android"
+	"github.com/cavss/Capomastro/internal/generator/api"
+	"github.com/cavss/Capomastro/internal/generator/db"
+	"github.com/cavss/Capomastro/internal/generator/flutter"
+	"github.com/cavss/Capomastro/internal/generator/ios"
+	"github.com/cavss/Capomastro/internal/generator/react"
+	"github.com/cavss/Capomastro/internal/generator/server"
+	"github.com/cavss/Capomastro/internal/generator/web"
 )
 
 var (
@@ -35,21 +40,32 @@ var (
 func main() {
 	root := &cobra.Command{
 		Use:   "ProjectBuilder",
-		Short: "Generate buildable Xcode/Android Studio projects",
-		Long:  "CLI tool that detects your IDE version and generates compatible, buildable projects.",
-		RunE:  run,
+		Short: "Generate buildable projects for any platform",
+		Long: `CLI tool that generates complete, buildable project scaffolds.
+
+Platforms:
+  ios      — Xcode project (SwiftUI default, --framework uikit)
+  macos    — Xcode macOS project (SwiftUI default)
+  android  — Android Studio project (Compose default, --framework xml)
+  flutter  — Flutter project
+  react    — React app (Vite+TS default, --framework nextjs)
+  web      — Next.js app (Next.js+Tailwind default)
+  api      — REST API server (Express+TS default, --framework hono/fastify)
+  server   — Realtime server (WebSocket+Supabase default)
+  db       — Database project (Supabase default, --framework prisma)`,
+		RunE: run,
 	}
 
 	// Common
-	root.Flags().StringVar(&platform, "platform", "", "Target platform: ios, macos, android, flutter (required)")
-	root.Flags().StringVar(&pkg, "pkg", "", "Package/bundle identifier (e.g. com.example.app) (required)")
+	root.Flags().StringVar(&platform, "platform", "", "Target platform (required)")
+	root.Flags().StringVar(&pkg, "pkg", "", "Package/bundle identifier (e.g. com.example.app)")
 	root.Flags().StringVar(&name, "name", "", "Project name (required)")
 	root.Flags().StringVar(&out, "out", ".", "Output directory")
-	root.Flags().StringVar(&framework, "framework", "", "UI framework: swiftui, uikit (iOS/macOS), compose, xml (Android)")
+	root.Flags().StringVar(&framework, "framework", "", "UI/tech framework override (platform-specific)")
 	root.Flags().StringVar(&minVersion, "min-version", "", "Minimum deployment version override")
 
 	// iOS/macOS
-	root.Flags().StringVar(&team, "team", "", "Apple Development Team ID (e.g. TW562XCG9S)")
+	root.Flags().StringVar(&team, "team", "", "Apple Development Team ID")
 	root.Flags().BoolVar(&coreData, "coredata", false, "Include Core Data model (iOS/macOS only)")
 
 	// Android
@@ -60,7 +76,6 @@ func main() {
 	root.Flags().StringVar(&kotlinVersion, "kotlin-version", "", "Kotlin version override")
 
 	root.MarkFlagRequired("platform")
-	root.MarkFlagRequired("pkg")
 	root.MarkFlagRequired("name")
 
 	if err := root.Execute(); err != nil {
@@ -70,6 +85,8 @@ func main() {
 
 func run(cmd *cobra.Command, args []string) error {
 	switch platform {
+
+	// ── iOS / macOS ──────────────────────────────────────────
 	case "ios", "macos":
 		info, err := detector.DetectXcode()
 		if err != nil {
@@ -89,7 +106,6 @@ func run(cmd *cobra.Command, args []string) error {
 				minVer = info.DefaultMinMacOS
 			}
 		}
-
 		return ios.Generate(ios.Config{
 			Name:       name,
 			BundleID:   pkg,
@@ -102,13 +118,12 @@ func run(cmd *cobra.Command, args []string) error {
 			XcodeInfo:  info,
 		})
 
+	// ── Android ──────────────────────────────────────────────
 	case "android":
 		info, err := detector.DetectAndroidStudio()
 		if err != nil {
 			return fmt.Errorf("Android Studio detection failed: %w", err)
 		}
-
-		// Apply user overrides
 		if agpVersion != "" {
 			info.AGPVersion = agpVersion
 		}
@@ -118,15 +133,13 @@ func run(cmd *cobra.Command, args []string) error {
 		if kotlinVersion != "" {
 			info.KotlinVersion = kotlinVersion
 		}
-
 		fmt.Printf("Detected Android Studio %s (AGP %s, Gradle %s, Kotlin %s)\n",
 			info.VersionName, info.AGPVersion, info.GradleVersion, info.KotlinVersion)
 
 		fw := framework
 		if fw == "" {
-			fw = "compose"
+			fw = "compose" // default
 		}
-
 		return android.Generate(android.Config{
 			Name:        name,
 			PackageName: pkg,
@@ -138,6 +151,7 @@ func run(cmd *cobra.Command, args []string) error {
 			StudioInfo:  info,
 		})
 
+	// ── Flutter ──────────────────────────────────────────────
 	case "flutter":
 		return flutter.Generate(flutter.Config{
 			Name:      name,
@@ -145,7 +159,42 @@ func run(cmd *cobra.Command, args []string) error {
 			OutputDir: out,
 		})
 
+	// ── React ─────────────────────────────────────────────────
+	// default: Vite + React + TS
+	// --framework nextjs → Next.js (web generator 위임)
+	case "react":
+		if framework == "nextjs" || framework == "next" {
+			return web.Generate(web.Config{Name: name, OutputDir: out})
+		}
+		return react.Generate(react.Config{Name: name, OutputDir: out})
+
+	// ── Web (Next.js) ─────────────────────────────────────────
+	// default: Next.js + Tailwind
+	// --framework react → Vite React (react generator 위임)
+	case "web":
+		if framework == "react" || framework == "vite" {
+			return react.Generate(react.Config{Name: name, OutputDir: out})
+		}
+		return web.Generate(web.Config{Name: name, OutputDir: out})
+
+	// ── API (REST) ────────────────────────────────────────────
+	// default: Express + TS
+	// --framework hono / fastify → 향후 확장
+	case "api":
+		return api.Generate(api.Config{Name: name, OutputDir: out})
+
+	// ── Server (Realtime) ─────────────────────────────────────
+	// default: WebSocket + Supabase Realtime
+	case "server":
+		return server.Generate(server.Config{Name: name, OutputDir: out})
+
+	// ── DB ────────────────────────────────────────────────────
+	// default: Supabase migrations
+	// --framework prisma → 향후 확장
+	case "db":
+		return db.Generate(db.Config{Name: name, OutputDir: out})
+
 	default:
-		return fmt.Errorf("unsupported platform: %s (supported: ios, macos, android, flutter)", platform)
+		return fmt.Errorf("unsupported platform: %q\nSupported: ios, macos, android, flutter, react, web, api, server, db", platform)
 	}
 }

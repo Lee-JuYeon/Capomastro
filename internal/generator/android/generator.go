@@ -1,11 +1,12 @@
 package android
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/cavss/ProjectBuilder/internal/detector"
+	"github.com/cavss/Capomastro/internal/detector"
 )
 
 type Config struct {
@@ -164,29 +165,15 @@ func findAndroidSDK() string {
 	return ""
 }
 
+// G22 근본 해결: 환경 의존성 완전 제거 — 바이너리에 번들링
+//
+//go:embed assets/gradle-wrapper.jar
+var gradleWrapperJarData []byte
+
 func copyGradleWrapperJar(dest string) {
-	home, _ := os.UserHomeDir()
-	var found string
-
-	// Search entire .gradle directory for gradle-wrapper.jar
-	gradleDir := filepath.Join(home, ".gradle")
-	filepath.Walk(gradleDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if found == "" && info.Name() == "gradle-wrapper.jar" && !info.IsDir() {
-			found = path
-		}
-		return nil
-	})
-
-	if found != "" {
-		data, err := os.ReadFile(found)
-		if err == nil {
-			os.WriteFile(dest, data, 0644)
-			fmt.Printf("  gradle-wrapper.jar copied from cache\n")
-			return
-		}
+	if err := os.WriteFile(dest, gradleWrapperJarData, 0644); err != nil {
+		fmt.Printf("  [warn] gradle-wrapper.jar 쓰기 실패: %v\n", err)
+		return
 	}
-	fmt.Printf("  [warn] gradle-wrapper.jar not found — first Gradle sync will be slow\n")
+	fmt.Printf("  gradle-wrapper.jar 번들에서 복사 완료\n")
 }

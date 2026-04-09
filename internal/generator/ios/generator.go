@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cavss/ProjectBuilder/internal/detector"
+	"github.com/cavss/Capomastro/internal/detector"
 )
 
 type Config struct {

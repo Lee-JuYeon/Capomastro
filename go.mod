@@ -1,4 +1,4 @@
-module github.com/cavss/ProjectBuilder
+module github.com/cavss/Capomastro
 
 go 1.18
 
