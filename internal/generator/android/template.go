@@ -443,9 +443,6 @@ else
     which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH."
 fi
 
-# Setup the classpath
-CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
-
 # Determine the project base directory
 PRG="$0"
 while [ -h "$PRG" ] ; do
@@ -461,6 +458,9 @@ SAVED="$(pwd)"
 cd "$(dirname "$PRG")/" >/dev/null
 APP_HOME="$(pwd -P)"
 cd "$SAVED" >/dev/null
+
+# Setup the classpath (APP_HOME 계산 후 설정)
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 exec "$JAVACMD" \
     $DEFAULT_JVM_OPTS \
