@@ -117,12 +117,17 @@ description: iOS SwiftUI App
 | `android-studio/flutter-app.md` | Flutter App (via plugin) |
 | `android-studio/flutter-plugin.md` | Flutter Plugin |
 
-### VSCode (3 blueprints)
+### VSCode (6 blueprints)
 | Blueprint | Description |
 |--------|-------------|
 | `vscode/flutter-app.md` | Flutter App (via extension) |
 | `vscode/dart-package.md` | Dart Package |
 | `vscode/flutter-plugin.md` | Flutter Plugin |
+| `vscode/extension-ts.md` | VSCode TypeScript Extension (yo code) |
+| `vscode/extension-color-theme.md` | VSCode Color Theme Extension (yo code) |
+| `vscode/extension-snippet.md` | VSCode Snippet Pack Extension (yo code) |
+
+> VSCode blueprints = VSCode-specific wizards only. Web/backend scaffolding → Terminal blueprints.
 
 ### Unity (4 blueprints)
 `unity/mobile-game.md` · `unity/pc-game.md` · `unity/vr-game.md` · `unity/ar-game.md`
