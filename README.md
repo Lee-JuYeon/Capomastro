@@ -4,8 +4,8 @@
 
 # Capomastro
 
-**IDE Recipe agent for BigBoss OS.**
-Deterministic project scaffolding via MD recipe files — no LLM required for the happy path.
+**IDE Blueprint agent for BigBoss OS.**
+Deterministic project scaffolding via MD blueprint files — no LLM required for the happy path.
 
 > Part of the [BigBoss OS](https://github.com/Lee-JuYeon/bigbossos) ecosystem.
 
@@ -13,34 +13,34 @@ Deterministic project scaffolding via MD recipe files — no LLM required for th
 
 ## Concept: ViewHolder Agent
 
-Capomastro is a **ViewHolder agent** — a slot-based, sequential executor that reads recipe MD files and drives IDEs deterministically.
+Capomastro is a **ViewHolder agent** — a slot-based, sequential executor that reads blueprint MD files and drives IDEs deterministically.
 
 ```
 Capomastro GitHub repo (this repo)
-  └─ recipes/xcode/*.md
-  └─ recipes/android-studio/*.md
-  └─ recipes/terminal/*.md
-  └─ recipes/vscode/*.md
-  └─ recipes/unity/*.md
-  └─ recipes/unreal/*.md
-  └─ recipes/godot/*.md
+  └─ blueprints/xcode/*.md
+  └─ blueprints/android-studio/*.md
+  └─ blueprints/terminal/*.md
+  └─ blueprints/vscode/*.md
+  └─ blueprints/unity/*.md
+  └─ blueprints/unreal/*.md
+  └─ blueprints/godot/*.md
         │
         ▼
-  BigBoss OS server (ide-recipe.ts)
-  ├─ Fetches recipes from this repo
+  BigBoss OS server (ide-blueprint.ts)
+  ├─ Fetches blueprints from this repo
   ├─ Substitutes variables: {name} {orgId} {bundle} {outputDir}
   ├─ Drives IDE via IDEDriver (AX API)
   └─ Falls back to LLM vision loop only on step failure
 ```
 
-**Why recipes instead of code generation?**
+**Why blueprints instead of code generation?**
 - Xcode, Android Studio, Unity — GUI IDEs require the same click sequence every time
-- MD recipe = hardcoded, reproducible, zero-LLM
-- Same recipe works across projects; only variable values change
+- MD blueprint = hardcoded, reproducible, zero-LLM
+- Same blueprint works across projects; only variable values change
 
 ---
 
-## Recipe Format
+## Blueprint Format
 
 ```markdown
 ---
@@ -90,8 +90,8 @@ description: iOS SwiftUI App
 
 ## Supported Platforms
 
-### Xcode (12 recipes)
-| Recipe | Description |
+### Xcode (12 blueprints)
+| Blueprint | Description |
 |--------|-------------|
 | `xcode/ios-app.md` | iOS SwiftUI App |
 | `xcode/macos-app.md` | macOS SwiftUI App |
@@ -106,8 +106,8 @@ description: iOS SwiftUI App
 | `xcode/safari-extension.md` | Safari Web Extension |
 | `xcode/document-app.md` | Document-Based App |
 
-### Android Studio (7 recipes)
-| Recipe | Description |
+### Android Studio (7 blueprints)
+| Blueprint | Description |
 |--------|-------------|
 | `android-studio/empty-activity.md` | Empty Activity (Views) |
 | `android-studio/compose-activity.md` | Jetpack Compose Activity |
@@ -117,23 +117,23 @@ description: iOS SwiftUI App
 | `android-studio/flutter-app.md` | Flutter App (via plugin) |
 | `android-studio/flutter-plugin.md` | Flutter Plugin |
 
-### VSCode (3 recipes)
-| Recipe | Description |
+### VSCode (3 blueprints)
+| Blueprint | Description |
 |--------|-------------|
 | `vscode/flutter-app.md` | Flutter App (via extension) |
 | `vscode/dart-package.md` | Dart Package |
 | `vscode/flutter-plugin.md` | Flutter Plugin |
 
-### Unity (4 recipes)
+### Unity (4 blueprints)
 `unity/mobile-game.md` · `unity/pc-game.md` · `unity/vr-game.md` · `unity/ar-game.md`
 
-### Unreal (2 recipes)
+### Unreal (2 blueprints)
 `unreal/blank-game.md` · `unreal/fps-game.md`
 
-### Godot (2 recipes)
+### Godot (2 blueprints)
 `godot/2d-game.md` · `godot/3d-game.md`
 
-### Terminal / CLI (52+ recipes)
+### Terminal / CLI (52+ blueprints)
 
 **Mobile**: `flutter-app` · `react-native-app`
 
@@ -169,7 +169,7 @@ The original Capomastro was a Go binary that generated project files directly (p
 ./Capomastro --platform android --pkg com.example.myapp --name MyApp
 ```
 
-The new recipe-based approach supersedes this for most use cases.
+The new blueprint-based approach supersedes this for most use cases.
 
 ---
 
