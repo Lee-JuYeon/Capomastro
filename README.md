@@ -4,158 +4,174 @@
 
 # Capomastro
 
-CLI tool that generates buildable Xcode/Android Studio projects. Detects your IDE version and creates compatible projects with zero external dependencies.
+**IDE Recipe agent for BigBoss OS.**
+Deterministic project scaffolding via MD recipe files — no LLM required for the happy path.
 
-### CLI Aliases
+> Part of the [BigBoss OS](https://github.com/Lee-JuYeon/bigbossos) ecosystem.
+
+---
+
+## Concept: ViewHolder Agent
+
+Capomastro is a **ViewHolder agent** — a slot-based, sequential executor that reads recipe MD files and drives IDEs deterministically.
 
 ```
-capomastro <command>        # 정식 명칭
---enzo                      # 별칭
---capo                      # 별칭
---capomastro                # 별칭
+Capomastro GitHub repo (this repo)
+  └─ recipes/xcode/*.md
+  └─ recipes/android-studio/*.md
+  └─ recipes/terminal/*.md
+  └─ recipes/vscode/*.md
+  └─ recipes/unity/*.md
+  └─ recipes/unreal/*.md
+  └─ recipes/godot/*.md
+        │
+        ▼
+  BigBoss OS server (ide-recipe.ts)
+  ├─ Fetches recipes from this repo
+  ├─ Substitutes variables: {name} {orgId} {bundle} {outputDir}
+  ├─ Drives IDE via IDEDriver (AX API)
+  └─ Falls back to LLM vision loop only on step failure
 ```
 
-> *Part of the [CLI Company](https://github.com/users/Lee-JuYeon/projects/21) ecosystem*
+**Why recipes instead of code generation?**
+- Xcode, Android Studio, Unity — GUI IDEs require the same click sequence every time
+- MD recipe = hardcoded, reproducible, zero-LLM
+- Same recipe works across projects; only variable values change
 
-## Install
+---
+
+## Recipe Format
+
+```markdown
+---
+ide: xcode
+appName: Xcode
+description: iOS SwiftUI App
+---
+
+```json
+[
+  { "action": "menu",       "path": ["File", "New", "Project…"] },
+  { "action": "click_tab",  "title": "iOS" },
+  { "action": "click",      "title": "Next" },
+  { "action": "fill_field", "title": "Product Name",            "value": "{name}" },
+  { "action": "fill_field", "title": "Organization Identifier", "value": "{orgId}" },
+  { "action": "click",      "title": "Next" },
+  { "action": "set_location" },
+  { "action": "click",      "title": "Create" }
+]
+```
+
+### Variables
+
+| Variable | Description |
+|----------|-------------|
+| `{name}` | Project name |
+| `{orgId}` | Organization identifier (e.g. `com.company`) |
+| `{bundle}` | Full bundle ID (e.g. `com.company.app`) |
+| `{outputDir}` | Output directory (set at CLI startup via `PROJECT_DIR`) |
+| `{team}` | Apple Team ID (optional) |
+
+### Action Types
+
+| Action | Description |
+|--------|-------------|
+| `menu` | Click menu bar + navigate submenus |
+| `click_tab` | Click tab / radio button |
+| `click` | Click button |
+| `click_cell` | Select cell in grid or list |
+| `filter` | Type in search field (auto-reveals toggle if hidden) |
+| `fill_field` | Triple-click + type in text field |
+| `set_location` | Handle "Where:" popup → set to `{outputDir}` |
+| `wait` | Pause for `ms` milliseconds |
+| `shell` | Run CLI command (for Terminal-based platforms) |
+
+---
+
+## Supported Platforms
+
+### Xcode (12 recipes)
+| Recipe | Description |
+|--------|-------------|
+| `xcode/ios-app.md` | iOS SwiftUI App |
+| `xcode/macos-app.md` | macOS SwiftUI App |
+| `xcode/multiplatform.md` | Multiplatform SwiftUI App |
+| `xcode/watchos-app.md` | watchOS App |
+| `xcode/tvos-app.md` | tvOS App |
+| `xcode/visionos-app.md` | visionOS App |
+| `xcode/framework.md` | iOS Framework |
+| `xcode/swift-package.md` | Swift Package |
+| `xcode/arkit-app.md` | ARKit App |
+| `xcode/game-spritekit.md` | SpriteKit Game |
+| `xcode/safari-extension.md` | Safari Web Extension |
+| `xcode/document-app.md` | Document-Based App |
+
+### Android Studio (7 recipes)
+| Recipe | Description |
+|--------|-------------|
+| `android-studio/empty-activity.md` | Empty Activity (Views) |
+| `android-studio/compose-activity.md` | Jetpack Compose Activity |
+| `android-studio/wearos-app.md` | Wear OS App |
+| `android-studio/tv-app.md` | Android TV App |
+| `android-studio/arcore-app.md` | ARCore App |
+| `android-studio/flutter-app.md` | Flutter App (via plugin) |
+| `android-studio/flutter-plugin.md` | Flutter Plugin |
+
+### VSCode (3 recipes)
+| Recipe | Description |
+|--------|-------------|
+| `vscode/flutter-app.md` | Flutter App (via extension) |
+| `vscode/dart-package.md` | Dart Package |
+| `vscode/flutter-plugin.md` | Flutter Plugin |
+
+### Unity (4 recipes)
+`unity/mobile-game.md` · `unity/pc-game.md` · `unity/vr-game.md` · `unity/ar-game.md`
+
+### Unreal (2 recipes)
+`unreal/blank-game.md` · `unreal/fps-game.md`
+
+### Godot (2 recipes)
+`godot/2d-game.md` · `godot/3d-game.md`
+
+### Terminal / CLI (52+ recipes)
+
+**Mobile**: `flutter-app` · `react-native-app`
+
+**Web**: `nextjs-app` · `nuxt-app` · `angular-app` · `sveltekit-app` · `astro-site` · `chrome-extension` · `firefox-extension`
+
+**Desktop**: `electron-app` · `tauri-app` · `dotnet-winui`
+
+**Backend**: `node-fastify-api` · `python-fastapi` · `go-gin-api` · `rust-axum-api` · `java-springboot-api` · `graphql-apollo` · `grpc-go` · `cloudflare-worker` · `node-websocket` · `kafka-consumer`
+
+**System / CLI tools**: `rust-cli-tool` · `go-cli-tool` · `python-cli-tool` · `embedded-arduino` · `ros2-robot`
+
+**AI / ML**: `pytorch-training` · `fastapi-inference` · `langchain-rag` · `mlflow-mlops` · `airflow-pipeline` · `opencv-vision` · `whisper-audio` · `autogen-agent`
+
+**Blockchain**: `hardhat-evm` · `anchor-solana`
+
+**AR / VR / Games**: `webxr-threejs` · `phaser-webgame`
+
+**Data**: `playwright-scraper` · `prometheus-grafana`
+
+**Database**: `supabase-local` · `mysql-docker` · `mongodb-docker` · `redis-docker` · `pgvector-app`
+
+**DevOps / IaC**: `terraform-aws` · `pulumi-typescript` · `kubernetes-helm` · `github-actions-cicd` · `elk-logging`
+
+---
+
+## Legacy: Go Generator
+
+The original Capomastro was a Go binary that generated project files directly (pbxproj, gradle, etc.) without IDE interaction. It is preserved in this repo for reference.
 
 ```bash
-go install github.com/cavss/Capomastro@latest
+# Legacy CLI (Go binary)
+./Capomastro --platform ios --pkg com.example.myapp --name MyApp
+./Capomastro --platform android --pkg com.example.myapp --name MyApp
 ```
 
-Or download the binary from [Releases](https://github.com/Lee-JuYeon/Capomastro/releases).
+The new recipe-based approach supersedes this for most use cases.
 
-## Usage
-
-```bash
-Capomastro --platform <PLATFORM> --pkg <PACKAGE> --name <NAME> [options]
-```
-
-### Required flags
-
-| Flag | Description | Example |
-|------|-------------|---------|
-| `--platform` | Target platform | `ios`, `macos`, `android`, `flutter` |
-| `--pkg` | Bundle/package identifier | `com.example.myapp` |
-| `--name` | Project name | `MyApp` |
-
-### Optional flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--out` | `.` | Output directory |
-| `--framework` | `swiftui` (iOS) / `compose` (Android) | UI framework: `swiftui`, `uikit`, `compose`, `xml` |
-| `--min-version` | Auto-detected | Minimum OS version (e.g. `15.0`, `24`) |
-| `--coredata` | `false` | Include Core Data model (iOS/macOS only) |
-
-## Examples
-
-### iOS (SwiftUI)
-
-```bash
-Capomastro --platform ios --pkg com.example.myapp --name MyApp
-```
-
-### iOS (UIKit + CoreData)
-
-```bash
-Capomastro --platform ios --pkg com.example.myapp --name MyApp --framework uikit --coredata
-```
-
-### iOS (minimum version override)
-
-```bash
-Capomastro --platform ios --pkg com.example.myapp --name MyApp --min-version 15.0
-```
-
-### macOS
-
-```bash
-Capomastro --platform macos --pkg com.example.myapp --name MyApp
-```
-
-### Android (Jetpack Compose)
-
-```bash
-Capomastro --platform android --pkg com.example.myapp --name MyApp
-```
-
-### Android (XML layout)
-
-```bash
-Capomastro --platform android --pkg com.example.myapp --name MyApp --framework xml
-```
-
-### Flutter
-
-```bash
-Capomastro --platform flutter --pkg com.example --name MyApp
-```
-
-## How it works
-
-1. Detects the host machine's IDE version
-   - **Xcode**: `xcodebuild -version`, `swift --version`
-   - **Android Studio**: reads `build.txt` from installation
-2. Maps IDE version to compatible build tool versions (AGP, Gradle, Kotlin, Swift)
-3. Generates a complete, buildable project with proper structure
-
-### Generated iOS project
-
-```
-MyApp/
-├── MyApp.xcodeproj/project.pbxproj   ← generated directly (no XcodeGen)
-├── MyApp/
-│   ├── MyAppApp.swift
-│   ├── ContentView.swift
-│   └── Assets.xcassets/
-├── MyAppTests/
-│   └── MyAppTests.swift
-└── MyAppUITests/
-    ├── MyAppUITests.swift
-    └── MyAppUITestsLaunchTests.swift
-```
-
-### Generated Android project
-
-```
-MyApp/
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradle.properties
-├── gradle/wrapper/gradle-wrapper.properties
-└── app/
-    ├── build.gradle.kts
-    └── src/main/
-        ├── AndroidManifest.xml
-        ├── java/com/example/myapp/MainActivity.kt
-        └── res/values/strings.xml
-```
-
-## Key features
-
-- **Zero external dependencies** — no XcodeGen, no Tuist, no Cocoapods
-- **IDE version detection** — generates projects compatible with your installed IDE
-- **Single binary** — download and run, no runtime needed
-- **CLI-first** — non-interactive, scriptable, CI/CD friendly
-
-## Supported Android Studio versions
-
-| Version | Codename | AGP | Gradle | Kotlin |
-|---------|----------|-----|--------|--------|
-| 2024.3 | Meerkat | 8.9.0 | 8.11.1 | 2.1.0 |
-| 2024.2 | Ladybug | 8.8.0 | 8.10.2 | 2.0.21 |
-| 2024.1 | Koala | 8.5.0 | 8.7 | 2.0.0 |
-| 2023.3 | Jellyfish | 8.4.0 | 8.6 | 1.9.23 |
-| 2023.2 | Iguana | 8.3.0 | 8.4 | 1.9.22 |
-| 2023.1 | Hedgehog | 8.2.0 | 8.2 | 1.9.20 |
-| 2022.3 | Giraffe | 8.1.0 | 8.0 | 1.9.0 |
-| 2022.2 | Flamingo | 8.0.0 | 8.0 | 1.8.10 |
-| 2022.1 | Electric Eel | 7.4.0 | 7.5 | 1.8.0 |
-| 2021.3 | Dolphin | 7.3.0 | 7.4 | 1.7.20 |
-| 2021.2 | Chipmunk | 7.2.0 | 7.3.3 | 1.7.10 |
-| 2021.1 | Bumblebee | 7.1.0 | 7.2 | 1.6.21 |
-| 2020.3 | Arctic Fox | 7.0.0 | 7.0.2 | 1.5.31 |
+---
 
 ## License
 
