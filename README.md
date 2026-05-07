@@ -9,6 +9,8 @@ Deterministic project scaffolding via MD blueprint files — no LLM required for
 
 > Part of the [BigBoss OS](https://github.com/Lee-JuYeon/bigbossos) ecosystem.
 
+[![Gemma 3](https://img.shields.io/badge/Gemma%203-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev/gemma)
+
 ---
 
 ## Concept: ViewHolder Agent
