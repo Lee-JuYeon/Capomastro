@@ -4,43 +4,62 @@
 
 # Capomastro
 
-**IDE Blueprint agent for BigBoss OS.**
-Deterministic project scaffolding via MD blueprint files — no LLM required for the happy path.
+**Vision-first IDE automation agent for BigBoss OS — the "eyes" that build your projects.**
+
+Capomastro watches the IDE on screen and drives it the way a developer would — looking, clicking, typing, navigating — to scaffold and build **real projects inside real IDEs**. Think of it as a Manus-style agent specialized for IDE GUI automation.
 
 > Part of the [BigBoss OS](https://github.com/Lee-JuYeon/bigbossos) ecosystem.
 
 ---
 
-## Concept: ViewHolder Agent
+## Concept: the eyes of the agent (Vision-First)
 
-Capomastro is a **ViewHolder agent** — a slot-based, sequential executor that reads blueprint MD files and drives IDEs deterministically.
+Capomastro is **vision-first**. A vision model looks at the current IDE screen, decides the next action, and acts:
 
 ```
-Capomastro GitHub repo (this repo)
-  └─ blueprints/xcode/*.md
-  └─ blueprints/android-studio/*.md
-  └─ blueprints/terminal/*.md
-  └─ blueprints/vscode/*.md
-  └─ blueprints/unity/*.md
-  └─ blueprints/unreal/*.md
-  └─ blueprints/godot/*.md
-        │
-        ▼
-  BigBoss OS server (ide-blueprint.ts)
-  ├─ Fetches blueprints from this repo
-  ├─ Substitutes variables: {name} {orgId} {bundle} {outputDir}
-  ├─ Drives IDE via IDEDriver (AX API)
-  └─ Falls back to LLM vision loop only on step failure
+  ┌─ Vision model SEES the current IDE screen
+  │     (windows, menus, fields, buttons — as pixels, not a fixed script)
+  ▼
+  Decide next action  →  act (menu / click / fill / set location / shell)
+  ▲                                         │
+  └─────────────  loop until the project is created  ◄┘
 ```
 
-**Why blueprints instead of code generation?**
-- Xcode, Android Studio, Unity — GUI IDEs require the same click sequence every time
-- MD blueprint = hardcoded, reproducible, zero-LLM
-- Same blueprint works across projects; only variable values change
+- **Reads the UI, doesn't replay a script** — so it adapts across IDEs, versions, and layouts instead of breaking when a button moves.
+- **Real IDE artifacts** — the same files/structure a developer would get by clicking through the IDE. Never code-faked output.
+- **The "eyes" of BigBoss OS** — when the C-level agents finalize a spec ("the blueprint"), Capomastro is the hand-and-eye that builds the actual project ("the house").
+
+### Why vision-first
+
+Capomastro went through two earlier, more brittle approaches (both preserved below as legacy):
+
+1. **Go generator** — wrote project files directly (pbxproj, gradle…). Problem: the output didn't match what the IDE itself creates.
+2. **Deterministic MD blueprints** — fixed click sequences per IDE. Problem: they break the moment an IDE's UI shifts, a version changes, or a new IDE appears, and every target needs its own hand-authored script.
+
+Vision-first generalizes: because Capomastro *sees* the screen, one agent handles many IDEs and adapts to change — no per-screen hardcoding to maintain.
 
 ---
 
-## Blueprint Format
+## Target IDEs & platforms
+
+Capomastro targets the full scaffolding surface (driven by vision; the legacy blueprints below map the same coverage):
+
+- **Xcode** — iOS / macOS / multiplatform / watchOS / tvOS / visionOS / framework / Swift package / ARKit / SpriteKit / Safari extension / document app
+- **Android Studio** — empty & Compose activities / Wear OS / Android TV / ARCore / Flutter app & plugin
+- **VSCode** — Flutter / Dart package / extensions (TS, color-theme, snippet)
+- **Unity / Unreal / Godot** — mobile/PC/VR/AR games, FPS, 2D/3D
+- **Terminal / CLI (52+)** — web (Next/Nuxt/Angular/SvelteKit/Astro…), backend (FastAPI/Gin/Axum/Spring/gRPC…), mobile (Flutter/React Native), AI/ML, blockchain, DevOps/IaC, databases
+
+---
+
+## Legacy / reference (superseded by vision-first)
+
+> The implementations below are kept for reference and during the transition. **Vision-first is the current direction**; these are being phased out.
+
+<details>
+<summary><b>Deterministic MD Blueprints</b> — fixed click sequences (legacy)</summary>
+
+A blueprint is an MD file with a JSON list of GUI steps; the BigBoss OS server substitutes variables and drives the IDE via the AX API, falling back to the vision loop on step failure.
 
 ```markdown
 ---
@@ -53,128 +72,30 @@ description: iOS SwiftUI App
 [
   { "action": "menu",       "path": ["File", "New", "Project…"] },
   { "action": "click_tab",  "title": "iOS" },
-  { "action": "click",      "title": "Next" },
-  { "action": "fill_field", "title": "Product Name",            "value": "{name}" },
-  { "action": "fill_field", "title": "Organization Identifier", "value": "{orgId}" },
-  { "action": "click",      "title": "Next" },
+  { "action": "fill_field", "title": "Product Name", "value": "{name}" },
   { "action": "set_location" },
   { "action": "click",      "title": "Create" }
 ]
 ```
 
-### Variables
+**Variables:** `{name}` · `{orgId}` · `{bundle}` · `{outputDir}` · `{team}`
 
-| Variable | Description |
-|----------|-------------|
-| `{name}` | Project name |
-| `{orgId}` | Organization identifier (e.g. `com.company`) |
-| `{bundle}` | Full bundle ID (e.g. `com.company.app`) |
-| `{outputDir}` | Output directory (set at CLI startup via `PROJECT_DIR`) |
-| `{team}` | Apple Team ID (optional) |
+**Action types:** `menu` · `click_tab` · `click` · `click_cell` · `filter` · `fill_field` · `set_location` · `wait` · `shell`
 
-### Action Types
+Blueprint files live under `blueprints/{xcode,android-studio,vscode,unity,unreal,godot,terminal}/`.
+</details>
 
-| Action | Description |
-|--------|-------------|
-| `menu` | Click menu bar + navigate submenus |
-| `click_tab` | Click tab / radio button |
-| `click` | Click button |
-| `click_cell` | Select cell in grid or list |
-| `filter` | Type in search field (auto-reveals toggle if hidden) |
-| `fill_field` | Triple-click + type in text field |
-| `set_location` | Handle "Where:" popup → set to `{outputDir}` |
-| `wait` | Pause for `ms` milliseconds |
-| `shell` | Run CLI command (for Terminal-based platforms) |
+<details>
+<summary><b>Go Generator</b> — direct file generation (oldest, legacy)</summary>
 
----
-
-## Supported Platforms
-
-### Xcode (12 blueprints)
-| Blueprint | Description |
-|--------|-------------|
-| `xcode/ios-app.md` | iOS SwiftUI App |
-| `xcode/macos-app.md` | macOS SwiftUI App |
-| `xcode/multiplatform.md` | Multiplatform SwiftUI App |
-| `xcode/watchos-app.md` | watchOS App |
-| `xcode/tvos-app.md` | tvOS App |
-| `xcode/visionos-app.md` | visionOS App |
-| `xcode/framework.md` | iOS Framework |
-| `xcode/swift-package.md` | Swift Package |
-| `xcode/arkit-app.md` | ARKit App |
-| `xcode/game-spritekit.md` | SpriteKit Game |
-| `xcode/safari-extension.md` | Safari Web Extension |
-| `xcode/document-app.md` | Document-Based App |
-
-### Android Studio (7 blueprints)
-| Blueprint | Description |
-|--------|-------------|
-| `android-studio/empty-activity.md` | Empty Activity (Views) |
-| `android-studio/compose-activity.md` | Jetpack Compose Activity |
-| `android-studio/wearos-app.md` | Wear OS App |
-| `android-studio/tv-app.md` | Android TV App |
-| `android-studio/arcore-app.md` | ARCore App |
-| `android-studio/flutter-app.md` | Flutter App (via plugin) |
-| `android-studio/flutter-plugin.md` | Flutter Plugin |
-
-### VSCode (6 blueprints)
-| Blueprint | Description |
-|--------|-------------|
-| `vscode/flutter-app.md` | Flutter App (via extension) |
-| `vscode/dart-package.md` | Dart Package |
-| `vscode/flutter-plugin.md` | Flutter Plugin |
-| `vscode/extension-ts.md` | VSCode TypeScript Extension (yo code) |
-| `vscode/extension-color-theme.md` | VSCode Color Theme Extension (yo code) |
-| `vscode/extension-snippet.md` | VSCode Snippet Pack Extension (yo code) |
-
-> VSCode blueprints = VSCode-specific wizards only. Web/backend scaffolding → Terminal blueprints.
-
-### Unity (4 blueprints)
-`unity/mobile-game.md` · `unity/pc-game.md` · `unity/vr-game.md` · `unity/ar-game.md`
-
-### Unreal (2 blueprints)
-`unreal/blank-game.md` · `unreal/fps-game.md`
-
-### Godot (2 blueprints)
-`godot/2d-game.md` · `godot/3d-game.md`
-
-### Terminal / CLI (52+ blueprints)
-
-**Mobile**: `flutter-app` · `react-native-app`
-
-**Web**: `nextjs-app` · `nuxt-app` · `angular-app` · `sveltekit-app` · `astro-site` · `chrome-extension` · `firefox-extension`
-
-**Desktop**: `electron-app` · `tauri-app` · `dotnet-winui`
-
-**Backend**: `node-fastify-api` · `python-fastapi` · `go-gin-api` · `rust-axum-api` · `java-springboot-api` · `graphql-apollo` · `grpc-go` · `cloudflare-worker` · `node-websocket` · `kafka-consumer`
-
-**System / CLI tools**: `rust-cli-tool` · `go-cli-tool` · `python-cli-tool` · `embedded-arduino` · `ros2-robot`
-
-**AI / ML**: `pytorch-training` · `fastapi-inference` · `langchain-rag` · `mlflow-mlops` · `airflow-pipeline` · `opencv-vision` · `whisper-audio` · `autogen-agent`
-
-**Blockchain**: `hardhat-evm` · `anchor-solana`
-
-**AR / VR / Games**: `webxr-threejs` · `phaser-webgame`
-
-**Data**: `playwright-scraper` · `prometheus-grafana`
-
-**Database**: `supabase-local` · `mysql-docker` · `mongodb-docker` · `redis-docker` · `pgvector-app`
-
-**DevOps / IaC**: `terraform-aws` · `pulumi-typescript` · `kubernetes-helm` · `github-actions-cicd` · `elk-logging`
-
----
-
-## Legacy: Go Generator
-
-The original Capomastro was a Go binary that generated project files directly (pbxproj, gradle, etc.) without IDE interaction. It is preserved in this repo for reference.
+The original Capomastro was a Go binary that generated project files directly (pbxproj, gradle, etc.) without IDE interaction.
 
 ```bash
-# Legacy CLI (Go binary)
 ./Capomastro --platform ios --pkg com.example.myapp --name MyApp
-./Capomastro --platform android --pkg com.example.myapp --name MyApp
 ```
 
-The new blueprint-based approach supersedes this for most use cases.
+Superseded first by blueprints, now by vision-first.
+</details>
 
 ---
 
